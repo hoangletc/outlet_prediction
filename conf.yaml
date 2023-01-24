@@ -1,0 +1,13 @@
+PATH:
+  raw_holiday: res/sale_prediction/holidays_events.csv
+  res_holiday: res/processed/holidays.csv
+  raw_oil: res/sale_prediction/oil.csv
+  res_oil: res/processed/oil.csv
+  raw_store: res/sale_prediction/stores.csv
+  res_store: res/processed/stores.csv
+  mapping: res/processed/mappings.json
+
+  raw_train: res/sale_prediction/train.csv
+  res_train: res/processed/train/store_<id>.npy
+  raw_test: res/sale_prediction/test.csv
+  res_test: res/processed/test/store_<id>.npy
