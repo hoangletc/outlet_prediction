@@ -3,7 +3,7 @@ import math
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Literal, Tuple
+from typing import Literal, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -32,6 +32,7 @@ def _proc_des(des: str):
         des = tmp[0][0]
 
     des = des.removeprefix("traslado ")
+    des = des.removeprefix("puente ")
 
     if des.startswith("cantonizacion de"):
         des = "cantonizacion de"
@@ -50,11 +51,13 @@ def _proc_des(des: str):
     return des
 
 
-def _process_entry(entry, df: pd.DataFrame) -> Tuple[str, str, str, str, bool]:
+def _process_entry(entry, df: pd.DataFrame) -> Tuple[Union[str, None], Union[str, None],
+                                                     Union[str, None], Union[str, None], bool]:
     locale_name, date = entry.locale_name, entry.date
     raw_date_type = entry.type
     des = entry.description
     date_type = "work day"
+    ignored = False
 
     # Process case type = 'Event'
     if raw_date_type == "event":
@@ -69,28 +72,32 @@ def _process_entry(entry, df: pd.DataFrame) -> Tuple[str, str, str, str, bool]:
 
     if raw_date_type == "bridge":
         date_type = "holiday"
-        des = entry.description.removeprefix("puente ")
 
     if raw_date_type == "transfer":
         date_type = "holiday"
-    if entry.transferred is True:
-        date_type = "work day"
 
     # Process case type = 'additional'
     if raw_date_type == "additional":
-        date_type = "additional"
+        # Check whether there is "bridge" occuring in the same date
+        c1 = df['date'] == date
+        c2 = df['type'].isin(['bridge', 'event', 'transfer', 'holiday'])
+        c3 = df['description'] == des
+        c4 = df['locale_name'] == locale_name
+        df_tmp = df[c1 & c2 & c3 & c4]
+        assert len(df_tmp) <= 1
+        if len(df_tmp) == 1:
+            ignored = True
+            return None, None, None, None, ignored
+        else:
+            date_type = "additional"
 
-    # Set description
+    # Some default set
     if date_type == "work day":
         des = "work day"
-    else:
-        des = _proc_des(des)
-
-    # Set locale_name
     if date_type in ["work day", "weekend"]:
         locale_name = "ecuador"
 
-    return date, date_type, locale_name, des
+    return date, date_type, locale_name, des, ignored
 
 
 class Mapping():
@@ -147,19 +154,25 @@ class HolidayInfo:
             tuple: tuple of encoded holiday info
         """
 
+        def _set_default(default: Literal['work day', 'weekend'] = 'work day'):
+            date_type = self.mapping['date_type'][default]
+            date_name = self.mapping['date_name'][default]
+
+            return date_type, date_name
+
         date_type_local, date_name_local, loc_name_local = -1, -1, -1
         date_type_region, date_name_region, loc_name_region = -1, -1, -1
         date_type_nation_1, date_name_nation_1 = -1, -1
         date_type_nation_2, date_name_nation_2 = -1, -1
 
         df = self.holiday[self.holiday['date'] == date]
+        date_obj = datetime.strptime(date, "%Y-%m-%d")
 
         if len(df) == 0:
-            date_obj = datetime.strptime(date, "%Y-%m-%d")
-            if date_obj.weekday() < 5:
-                date_type_nation = self.mapping['date_type']["weekend"]
+            if date_obj.weekday() >= 5:
+                date_type_nation_1, date_name_nation_1 = _set_default('weekend')
             else:
-                date_type_nation = self.mapping['date_type']["work day"]
+                date_type_nation_1, date_name_nation_1 = _set_default()
         else:
             # Get local holiday info
             d_local = df[df['locale_name'] == city]
@@ -199,10 +212,10 @@ class HolidayInfo:
                     date_type_nation_2 = self.mapping['date_type'][row['date_type']]
                     date_name_nation_2 = self.mapping['date_name'][row['date_name']]
             else:
-                # Process case type = 'weekend'
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
                 if date_obj.weekday() >= 5:
-                    date_type_nation_2 = date_name_nation_2 = "weekend"
+                    date_type_nation_1, date_name_nation_1 = _set_default('weekend')
+                else:
+                    date_type_nation_1, date_name_nation_1 = _set_default()
 
         out = (date_type_local, date_name_local, loc_name_local,
                date_type_region, date_name_region, loc_name_region,
@@ -215,22 +228,24 @@ class HolidayInfo:
         holidayinfo = []
         df = pd.read_csv(path_raw)
 
-        # Lowercase some columns
+        # Preprocess some columns
         df.loc[:, 'type'] = df['type'].str.lower()
         df.loc[:, 'locale_name'] = df['locale_name'].str.lower()
         df.loc[:, 'locale'] = df['locale'].str.lower()
         df.loc[:, 'description'] = df['description'].str.lower()
+        df.loc[:, 'description'] = df['description'].apply(_proc_des)
 
         # Start looping
         for entry in df.itertuples():
-            date, date_type, locale_name, date_name = _process_entry(entry, df)
+            date, date_type, locale_name, date_name, ignored = _process_entry(entry, df)
 
-            holidayinfo.append({
-                'date_type': date_type,
-                'date': date,
-                'date_name': date_name,
-                'locale_name': locale_name,
-            })
+            if ignored is False:
+                holidayinfo.append({
+                    'date_type': date_type,
+                    'date': date,
+                    'date_name': date_name,
+                    'locale_name': locale_name,
+                })
 
         out = pd.DataFrame.from_records(holidayinfo)
 
@@ -384,8 +399,7 @@ class Preprocess():
         self.holiday = HolidayInfo(self.mapping, paths['raw_holiday'], paths['res_holiday'])
         self.store = Store(self.mapping, paths['raw_store'], paths['res_store'])
 
-    def _preprocess(self, data: pd.DataFrame) -> np.ndarray:
-        logger.info("Start preprocess")
+    def _preprocess(self, idx: int, data: pd.DataFrame) -> np.ndarray:
 
         # Some basic transforms: Apply scaling on 'onpromotion', lowercase
         _scale_minmax(data, 'onpromotion')
@@ -393,7 +407,7 @@ class Preprocess():
 
         # Start processing
         processed = []
-        for r in tqdm(data.itertuples(), total=data.shape[0]):
+        for r in tqdm(data.itertuples(), total=data.shape[0], desc=f"Start preprocess {idx}"):
             entry = []
 
             entry.append(r.sales)
@@ -424,7 +438,7 @@ class Preprocess():
             processed.append(entry)
 
         # Convert to np array and save
-        processed = np.array(processed)
+        processed = np.array(processed, dtype=np.float32)
 
         return processed
 
@@ -437,21 +451,20 @@ class Preprocess():
             raise NotImplementedError()
 
         df = pd.read_csv(path_raw)
-        n_files_created = len(list(Path(path_res).parent.glob("store_*.npy")))
-        if n_files_created != 0:
-            logger.info(f"Found {n_files_created} files created. Resuming...")
+        n_files_created = len(list(Path(path_res).parent.glob("store_*.npz")))
+        if n_files_created == 0:
+            logger.info("No file created. Starting...")
 
             start = 1
         else:
-            logger.info("No file created. Starting...")
+            logger.info(f"Found {n_files_created} files created. Resuming...")
 
             start = n_files_created + 1
 
         for i in range(start, NUM_STORES + 1):
-            logger.info(f"Creating data of store: {i:2d}")
-            df_store = df[df['store_nbr'] == i]
+            df_store = df[df['store_nbr'] == i].copy()
 
-            out = self._preprocess(df_store)
+            out = self._preprocess(i, df_store)
 
             path_save = path_res.replace("<id>", f"{i:02d}")
             Path(path_save).parent.mkdir(exist_ok=True)
