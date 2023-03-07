@@ -5,10 +5,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Current File",
+      "name": "Python: trigger_preprocess",
       "type": "python",
       "request": "launch",
-      "program": "${file}",
+      "program": "trigger_preprocess.py",
       "console": "integratedTerminal",
       "justMyCode": true
     }

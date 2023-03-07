@@ -5,12 +5,20 @@ PATH:
   res_oil: res/processed/oil.csv
   raw_store: res/sale_prediction/stores.csv
   res_store: res/processed/stores.csv
+  raw_tot_trans: res/sale_prediction/transactions.csv
   mapping: res/processed/mappings.json
+  raw_transaction: res/sale_prediction/train.csv
+  raw_fact: res/processed/raw_fact.csv
 
-  raw_train: res/sale_prediction/train.csv
-  res_train: res/processed/train/store_<id>.npz
-  raw_test: res/sale_prediction/test.csv
-  res_test: res/processed/test/store_<id>.npz
+  train: res/sale_prediction/train
+  test: res/sale_prediction/test
+
+DB:
+  HOST: localhost
+  PORT: 5432
+  DB: outlet
+  USER: tommy
+  PWD: "000"
 
 TRAINING:
   SEED: 37

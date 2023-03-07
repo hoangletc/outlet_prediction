@@ -11,5 +11,25 @@
     "editor.codeActionsOnSave": {
       "source.organizeImports": true
     }
-  }
+  },
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "server": "localhost",
+      "port": 5432,
+      "driver": "PostgreSQL",
+      "name": "EvilTrans",
+      "database": "eviltrans",
+      "username": "tommy"
+    },
+    {
+      "previewLimit": 50,
+      "server": "localhost",
+      "port": 5432,
+      "driver": "PostgreSQL",
+      "name": "Outlet",
+      "database": "outlet",
+      "username": "tommy"
+    }
+  ]
 }
