@@ -10,8 +10,8 @@ PATH:
   raw_transaction: res/sale_prediction/train.csv
   raw_fact: res/processed/raw_fact.csv
 
-  train: res/sale_prediction/train
-  test: res/sale_prediction/test
+  train: res/processed/train
+  test: res/processed/test
 
 DB:
   HOST: localhost
@@ -22,8 +22,9 @@ DB:
 
 TRAINING:
   SEED: 37
-  N_EPOCHS: 1000
-  BATCH_SIZE: 128
-  LR: 1e-4
+  N_EPOCHS: 200
+  BATCH_SIZE: 64
+  D_FEAT: 4
+  LR: 5e-5
   CKPT: training_dumps/ckpt/
   LOGGER: training_dumps/log/

@@ -11,7 +11,7 @@ from tqdm import trange
 
 from sale_prediction import preprocess
 
-PATH_CONFIG = "/media/DataLinux/tcdata/outlet_prediction/conf.yaml"
+PATH_CONFIG = "/media/DataLinux/outlet_prediction/conf.yaml"
 with open(PATH_CONFIG) as fp:
     conf = yaml.safe_load(fp)
 

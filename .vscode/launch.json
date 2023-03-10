@@ -11,6 +11,22 @@
       "program": "trigger_preprocess.py",
       "console": "integratedTerminal",
       "justMyCode": true
+    },
+    {
+      "name": "Python: trigger_train",
+      "type": "python",
+      "request": "launch",
+      "program": "trigger_train.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "-m",
+        "mlp",
+        "--train-data",
+        "res/processed/v1.1/train.npz",
+        "--val-data",
+        "res/processed/v1.1/test.npz"
+      ]
     }
   ]
 }

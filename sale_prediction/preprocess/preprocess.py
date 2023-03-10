@@ -1,3 +1,4 @@
+
 import json
 import re
 from datetime import datetime, timedelta
@@ -6,7 +7,6 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-import yaml
 from loguru import logger
 from sklego.preprocessing import RepeatingBasisFunction
 from tqdm import tqdm
@@ -362,8 +362,8 @@ class Preprocess():
         out.append(r['sales'])
 
         # Encode datetime
-        dt_enc = self.dt.encode(r['date'])
-        out.extend(dt_enc)
+        # dt_enc = self.dt.encode(r['date'])
+        # out.extend(dt_enc)
 
         # Encode product family
         family_enc = self.mapping['family'][r['family']]
@@ -380,7 +380,7 @@ class Preprocess():
         # Append numeric values
         out.append(r['onpromotion'])
         out.append(r['dcoilwtico'])
-        out.append(IGNORED_VAL if utils.check_nan(r['transactions']) else r['transactions'])
+        # out.append(IGNORED_VAL if utils.check_nan(r['transactions']) else r['transactions'])
         out.append(r['sales_last1'])
         out.append(r['sales_last2'])
         out.append(r['sales_last3'])
@@ -448,37 +448,27 @@ class Preprocess():
         return df
 
     def split_traintest(self, df: pd.DataFrame, date_cutoff: str = '2016-05-21') -> tuple[pd.DataFrame, pd.DataFrame]:
-        df_train, df_test = df[df['date'] < date_cutoff], df[df['date'] >= date_cutoff]
+        df_train, df_test = df[(df['date'] < date_cutoff) & (df['date'] >= '2012-01-05')], df[df['date'] >= date_cutoff]
 
         return df_train, df_test
 
-    def save_split(self, split: Literal["train", "test"], data: list):
+    def save_split(self, split: Literal["train", "test"], version: str, data: list):
+        # Redefine path
         path = Path(self.paths['train'] if split == "train" else self.paths['test'])
+        parent = path.parent / version
+        parent.mkdir(exist_ok=True, parents=True)
+        path = parent / path.name
 
+        # Save data
         data_np = np.array(data, dtype=np.float32)
-        path.parent.mkdir(exist_ok=True, parents=True)
-        np.savez_compressed(path.stem, data_np)
+        np.savez_compressed(path, data_np)
 
     def create_fact_table(self) -> pd.DataFrame:
         df = pd.read_csv(self.paths['raw_fact'])
 
+        df['sales_last1'] = df['sales_last1'].fillna(IGNORED_VAL)
+        df['sales_last2'] = df['sales_last2'].fillna(IGNORED_VAL)
+        df['sales_last3'] = df['sales_last3'].fillna(IGNORED_VAL)
+        df['sales_last4'] = df['sales_last4'].fillna(IGNORED_VAL)
+
         return df
-
-
-if __name__ == '__main__':
-    path = "/media/DataLinux/tcdata/outlet_prediction/conf.yaml"
-    with open(path) as fp:
-        paths = yaml.safe_load(fp)['PATH']
-
-    preprocessor = Preprocess(paths)
-
-    df_fact = preprocessor.create_fact_table()
-    df_train, df_test = preprocessor.split_traintest(df_fact)
-
-    # # Encode and save training split
-    dat_train = preprocessor.encode(df_train)
-    preprocessor.save_split("train", dat_train)
-
-    # Encode and save testing split
-    dat_test = preprocessor.encode(df_test)
-    preprocessor.save_split("test", dat_test)
